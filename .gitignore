@@ -1,0 +1,30 @@
+# Python
+*.pyc
+__pycache__/
+
+# Django
+*.log
+local_settings.py
+
+# Virtual Environment
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# SQLite database files
+*.sqlite3
+
+# VS Code
+.vscode/
+
+# Mac OS X
+.DS_Store
+
+# Environment Variables
+.env
+
+# dev certificates
+192.168.0.101.pem
+192.168.0.101-key.pem
