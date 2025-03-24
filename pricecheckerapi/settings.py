@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -133,6 +134,16 @@ CORS_ALLOWED_ORIGINS = [
     "https://192.168.0.101:3000",
     "http://192.168.0.101:3000",
 ]
+
+# Whitenoise
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = 'static/'
+
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # App Env variables
 BARCODE_LOOKUP_URL = config('BARCODE_LOOKUP_URL')
