@@ -1,1 +1,1 @@
-web: gunicorn price-checker-api.wsgi --log-file -
+web: gunicorn pricecheckerapi.wsgi --log-file -
