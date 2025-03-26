@@ -140,6 +140,13 @@ STORAGES = {
     },
 }
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
 # App Env variables
 BARCODE_LOOKUP_URL = config('BARCODE_LOOKUP_URL')
 BARCODE_LOOKUP_KEY = config('BARCODE_LOOKUP_KEY')
+RECAPTCHA_SECRET_KEY = config('RECAPTCHA_SECRET_KEY')
