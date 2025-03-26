@@ -146,6 +146,12 @@ REST_FRAMEWORK = {
     ),
 }
 
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=120),  # Change this value as needed
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),    # Change this value as needed
+    # ... other settings ...
+}
+
 # App Env variables
 BARCODE_LOOKUP_URL = config('BARCODE_LOOKUP_URL')
 BARCODE_LOOKUP_KEY = config('BARCODE_LOOKUP_KEY')
