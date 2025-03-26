@@ -17,8 +17,12 @@ class GroceryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
     serializer_class = GrocerySerializer
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # This allows unauthenticated users to access the signup endpoint
+@permission_classes([AllowAny])
 def signup_view(request):
+    if not settings.ACCOUNT_CREATION_ENABLED:
+        return Response({'detail': 'Account creation is disabled at this time.'},
+                        status=status.HTTP_403_FORBIDDEN)
+
     serializer = UserSignupSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
