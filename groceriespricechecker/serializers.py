@@ -1,7 +1,8 @@
 from django.contrib.auth.models import User
+from django.utils import timezone
 from rest_framework import serializers
-from .models import Grocery, Message
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .models import Grocery, Message
 
 class GrocerySerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,11 +11,12 @@ class GrocerySerializer(serializers.ModelSerializer):
 
 class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)
-    # Optionally, add a confirm_password field if you want to validate it on the backend
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password']
+        fields = ['username', 'email', 'first_name', 'last_name', 'password']
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
@@ -41,18 +43,27 @@ class UserSignupSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data.get('email', ''),
-            password=validated_data['password']
+            password=validated_data['password'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
         )
         return user
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        # Update the user's last_login field
+        self.user.last_login = timezone.now()
+        self.user.save(update_fields=['last_login'])
+        return data
+
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        # Add custom claims
         token['username'] = user.username
         token['email'] = user.email
-        # You can add more claims here if needed
+        token['first_name'] = user.first_name
+        token['last_name'] = user.last_name
         return token
 
 class MessageSerializer(serializers.ModelSerializer):
