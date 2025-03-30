@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from groceriespricechecker.views import CustomTokenObtainPairView, contact_us, signup_view
+from groceriespricechecker.views import CustomTokenObtainPairView, contact_us, signup_view, ForgotPasswordView, ResetPasswordView
 from groceriespricechecker.serializers import CustomTokenObtainPairSerializer
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -17,4 +17,6 @@ urlpatterns = [
     path('api/contact-us/', contact_us, name='contact_us'),
     path('api/signup/', signup_view, name='signup'),
     path('api/', include('groceriespricechecker.urls')),  # All API endpoints under /api/
+    path('api/forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
+    path('api/reset-password/', ResetPasswordView.as_view(), name='reset-password'),
 ]
