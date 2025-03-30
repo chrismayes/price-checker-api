@@ -14,7 +14,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import Grocery
 from .serializers import GrocerySerializer, UserSignupSerializer, CustomTokenObtainPairSerializer, MessageSerializer
 
-User = get_user_model()  # Supports custom user models
+User = get_user_model()
 
 class GroceryListCreateAPIView(generics.ListCreateAPIView):
     queryset = Grocery.objects.all()
@@ -83,8 +83,7 @@ class ForgotPasswordView(APIView):
         token = token_generator.make_token(user)
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
 
-        # Build the password reset link (adjust the URL as needed for your frontend)
-        reset_link = f"{request.scheme}://{request.get_host()}/reset-password/?uid={uidb64}&token={token}"
+        reset_link = f"{settings.FRONTEND_URL}/reset-password/?uid={uidb64}&token={token}"
 
         subject = "Password Reset for Grocery Price Checker"
         message = (
@@ -97,11 +96,11 @@ class ForgotPasswordView(APIView):
             "Grocery Price Checker Team"
         )
 
-        # Send email via SendGrid (ensure EMAIL_BACKEND is configured for SendGrid)
+        # Send email via SendGrid
         email_message = EmailMessage(
             subject,
             message,
-            settings.DEFAULT_FROM_EMAIL,  # e.g. admin@grocerypricechecker.com
+            settings.DEFAULT_FROM_EMAIL,
             [user.email],
         )
         email_message.send()
