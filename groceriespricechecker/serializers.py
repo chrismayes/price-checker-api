@@ -1,5 +1,10 @@
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.core.mail import send_mail
+from django.conf import settings
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import Grocery, Message
@@ -19,6 +24,9 @@ class UserSignupSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'first_name', 'last_name', 'password']
 
     def validate_username(self, value):
+        # Ensure the username contains only alphanumeric characters.
+        if not value.isalnum():
+            raise serializers.ValidationError("Username can only contain alphanumeric characters.")
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("Username already exists.")
         return value
@@ -39,7 +47,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        # Use Django's built-in create_user to hash the password properly
+        # Create user using create_user to hash the password properly.
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data.get('email', ''),
@@ -47,10 +55,48 @@ class UserSignupSerializer(serializers.ModelSerializer):
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
         )
+        # Optionally mark user as inactive until email confirmation is complete.
+        user.is_active = False
+        user.save()
+
+        # Generate an email confirmation token and UID.
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+
+        activation_link = f"{settings.FRONTEND_URL}/confirm-email/?uid={uid}&token={token}"
+        subject = "Confirm Your Email for Grocery Price Checker"
+        message = (
+            f"Hi {user.first_name},\n\n"
+            "Thank you for signing up for Grocery Price Checker.\n"
+            "Please confirm your email address by clicking the link below:\n\n"
+            f"{activation_link}\n\n"
+            "If you did not sign up for this account, please ignore this email.\n\n"
+            "Thanks,\n"
+            "The Grocery Price Checker Team"
+        )
+
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,  # e.g. 'admin@grocerypricechecker.com'
+            [user.email],
+            fail_silently=False,
+        )
+
         return user
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
+        # Check if the identifier (sent as "username") contains an "@" symbol.
+        identifier = attrs.get("username")
+        if identifier and "@" in identifier:
+            try:
+                user = User.objects.get(email__iexact=identifier)
+                attrs["username"] = user.username  # Replace with actual username
+            except User.DoesNotExist:
+                # Let the authentication process fail if no matching user is found
+                pass
+
         data = super().validate(attrs)
         # Update the user's last_login field
         self.user.last_login = timezone.now()

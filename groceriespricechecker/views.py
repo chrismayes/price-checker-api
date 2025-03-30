@@ -1,10 +1,11 @@
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.contrib.auth.tokens import PasswordResetTokenGenerator, default_token_generator
 from django.utils.encoding import force_bytes, force_str, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.core.mail import EmailMessage
+from django.core.mail import send_mail
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
@@ -13,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import Grocery
 from .serializers import GrocerySerializer, UserSignupSerializer, CustomTokenObtainPairSerializer, MessageSerializer
+from .throttles import FixedIntervalForgotPasswordThrottle
 
 User = get_user_model()
 
@@ -61,10 +63,32 @@ def contact_us(request):
     serializer = MessageSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
+
+        # Build email details for the admin
+        subject = f"New Contact Us Message: {request.data.get('subject', 'No Subject')}"
+        name = request.data.get('name', 'Anonymous')
+        email_sender = request.data.get('email', 'No Email Provided')
+        message_text = request.data.get('message', '')
+        message_body = (
+            f"Message from {name} <{email_sender}>:\n\n"
+            f"{message_text}"
+        )
+
+        # Send email to the admin
+        send_mail(
+            subject,
+            message_body,
+            settings.DEFAULT_FROM_EMAIL,  # Ensure this is set (or use 'admin@groceryPriceChecker.com' directly)
+            ['admin@groceryPriceChecker.com'],
+            fail_silently=False,
+        )
+
         return Response({'message': 'Your message has been received. Thank you!'}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [FixedIntervalForgotPasswordThrottle]
+
     def post(self, request):
         email = request.data.get('email')
         if not email:
@@ -96,7 +120,7 @@ class ForgotPasswordView(APIView):
             "Grocery Price Checker Team"
         )
 
-        # Send email via SendGrid
+        # Send email via SendGrid (or your configured email backend)
         email_message = EmailMessage(
             subject,
             message,
@@ -133,3 +157,27 @@ class ResetPasswordView(APIView):
         user.save()
 
         return Response({"message": "Password reset successfully."})
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def confirm_email(request):
+    uidb64 = request.data.get('uid')
+    token = request.data.get('token')
+
+    if not uidb64 or not token:
+        return Response({"error": "Missing uid or token."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (DjangoUnicodeDecodeError, User.DoesNotExist):
+        return Response({"error": "Invalid uid."}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not default_token_generator.check_token(user, token):
+        return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Activate the user account
+    user.is_active = True
+    user.save(update_fields=['is_active'])
+
+    return Response({"message": "Email confirmed successfully. You can now log in."}, status=status.HTTP_200_OK)
