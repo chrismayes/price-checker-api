@@ -4,8 +4,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator, default_token_generator
 from django.utils.encoding import force_bytes, force_str, DjangoUnicodeDecodeError
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.core.mail import EmailMessage
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage, send_mail, EmailMultiAlternatives
+from django.template.loader import render_to_string
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
@@ -85,6 +85,7 @@ def contact_us(request):
 
         return Response({'message': 'Your message has been received. Thank you!'}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [FixedIntervalForgotPasswordThrottle]
@@ -97,37 +98,35 @@ class ForgotPasswordView(APIView):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            # To prevent email enumeration, return a generic message even if no user is found
+            # Generic response to prevent email enumeration
             return Response({
                 "message": "If an account exists with that email, password reset instructions have been sent."
             })
 
-        # Generate token and uid
         token_generator = PasswordResetTokenGenerator()
         token = token_generator.make_token(user)
         uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
-
         reset_link = f"{settings.FRONTEND_URL}/reset-password/?uid={uidb64}&token={token}"
 
         subject = "Password Reset for Grocery Price Checker"
-        message = (
-            "Hello,\n\n"
-            "We received a request to reset your password for Grocery Price Checker. "
-            "Please click the link below to set a new password:\n\n"
-            f"{reset_link}\n\n"
-            "If you did not request a password reset, please ignore this email.\n\n"
-            "Thanks,\n"
-            "Grocery Price Checker Team"
-        )
+        context = {
+            'first_name': user.first_name,
+            'reset_link': reset_link
+        }
 
-        # Send email via SendGrid (or your configured email backend)
-        email_message = EmailMessage(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
+        # Render the HTML version of the email
+        html_message = render_to_string('emails/password_reset.html', context)
+        plain_message = render_to_string('emails/password_reset.txt', context)
+
+        # Send both HTML and plain text versions
+        email_message = EmailMultiAlternatives(
+            subject=subject,
+            body=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email],
         )
-        email_message.send()
+        email_message.attach_alternative(html_message, "text/html")
+        email_message.send(fail_silently=False)
 
         return Response({
             "message": "If an account exists with that email, password reset instructions have been sent."

@@ -1,6 +1,9 @@
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
@@ -14,6 +17,15 @@ class GrocerySerializer(serializers.ModelSerializer):
         model = Grocery
         fields = '__all__'
 
+from django.db import transaction
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+
 class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)
     first_name = serializers.CharField(required=True)
@@ -24,7 +36,6 @@ class UserSignupSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'first_name', 'last_name', 'password']
 
     def validate_username(self, value):
-        # Ensure the username contains only alphanumeric characters.
         if not value.isalnum():
             raise serializers.ValidationError("Username can only contain alphanumeric characters.")
         if User.objects.filter(username=value).exists():
@@ -37,7 +48,6 @@ class UserSignupSerializer(serializers.ModelSerializer):
         return value
 
     def validate_password(self, value):
-        # Password restrictions: at least 8 characters, contains at least one number and one uppercase letter.
         if len(value) < 8:
             raise serializers.ValidationError("Password must be at least 8 characters long.")
         if not any(char.isdigit() for char in value):
@@ -47,43 +57,46 @@ class UserSignupSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        # Create user using create_user to hash the password properly.
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data.get('email', ''),
-            password=validated_data['password'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-        )
-        # Optionally mark user as inactive until email confirmation is complete.
-        user.is_active = False
-        user.save()
+        # Wrap creation and email sending in a transaction.
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=validated_data['username'],
+                    email=validated_data.get('email', ''),
+                    password=validated_data['password'],
+                    first_name=validated_data['first_name'],
+                    last_name=validated_data['last_name'],
+                )
+                user.is_active = False
+                user.save()
 
-        # Generate an email confirmation token and UID.
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = default_token_generator.make_token(user)
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+                activation_link = f"{settings.FRONTEND_URL}/confirm-email/?uid={uid}&token={token}"
 
-        activation_link = f"{settings.FRONTEND_URL}/confirm-email/?uid={uid}&token={token}"
-        subject = "Confirm Your Email for Grocery Price Checker"
-        message = (
-            f"Hi {user.first_name},\n\n"
-            "Thank you for signing up for Grocery Price Checker.\n"
-            "Please confirm your email address by clicking the link below:\n\n"
-            f"{activation_link}\n\n"
-            "If you did not sign up for this account, please ignore this email.\n\n"
-            "Thanks,\n"
-            "The Grocery Price Checker Team"
-        )
+                subject = "Confirm Your Email for Grocery Price Checker"
+                context = {
+                    'first_name': user.first_name,
+                    'activation_link': activation_link
+                }
+                html_message = render_to_string('emails/confirm_email.html', context)
+                plain_message = render_to_string('emails/confirm_email.txt', context)
 
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,  # e.g. 'admin@grocerypricechecker.com'
-            [user.email],
-            fail_silently=False,
-        )
+                email_message = EmailMultiAlternatives(
+                    subject=subject,
+                    body=plain_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[user.email]
+                )
+                email_message.attach_alternative(html_message, "text/html")
+                email_message.send(fail_silently=False)
 
-        return user
+                return user
+
+        except Exception as e:
+            raise serializers.ValidationError(
+                f"An error occurred during signup. Please try again later. ({str(e)})"
+            )
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
