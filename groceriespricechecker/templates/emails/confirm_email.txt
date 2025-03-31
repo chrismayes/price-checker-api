@@ -2,7 +2,8 @@ Hello {{ first_name }},
 
 Thank you for signing up for Grocery Price Checker.
 
-Please confirm your email address by clicking the link below:
+Please confirm your email address by following the link below:
+
 {{ activation_link }}
 
 If you did not sign up for this account, please ignore this email.
