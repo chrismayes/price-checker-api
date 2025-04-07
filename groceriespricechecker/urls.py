@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import GroceryListCreateAPIView, GroceryRetrieveUpdateDestroyAPIView
-from .product_views import ProductFromBarcodeAPIView  # import the separated view
+from .product_views import ProductFromBarcodeAPIView
 
 urlpatterns = [
     path('groceries/', GroceryListCreateAPIView.as_view(), name='grocery-list-create'),

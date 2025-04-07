@@ -8,23 +8,16 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db import transaction
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import Grocery, Message
+from .models import Grocery, Message, EmailList
 
 class GrocerySerializer(serializers.ModelSerializer):
     class Meta:
         model = Grocery
         fields = '__all__'
 
-from django.db import transaction
-from django.core.mail import EmailMultiAlternatives
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from django.conf import settings
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode
-from django.utils.encoding import force_bytes
 
 class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)
@@ -129,3 +122,8 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = '__all__'
+
+class EmailListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailList
+        fields = ['name', 'email', 'origin']
