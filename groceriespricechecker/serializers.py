@@ -11,7 +11,7 @@ from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import Grocery, Message, EmailList
+from .models import Grocery, Message, EmailList, Shop
 
 class GrocerySerializer(serializers.ModelSerializer):
     class Meta:
@@ -127,3 +127,31 @@ class EmailListSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailList
         fields = ['name', 'email', 'origin']
+
+class ShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        # Alternatively, use fields = '__all__' if you want to expose every field.
+        fields = [
+            'id',
+            'owner',
+            'name',
+            'address_line1',
+            'address_line2',
+            'city',
+            'state',
+            'postal_code',
+            'country',
+            'phone_number',
+            'email',
+            'website',
+            'description',
+            'latitude',
+            'longitude',
+            'opening_hours',
+            'image_url',
+            'created_at',
+            'updated_at',
+            'active',
+            'deleted'
+        ]
