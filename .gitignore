@@ -31,3 +31,6 @@ venv.bak/
 
 # static files
 staticfiles/
+
+#backups
+backup/
