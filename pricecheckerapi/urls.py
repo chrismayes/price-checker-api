@@ -16,9 +16,9 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/contact-us/', contact_us, name='contact_us'),
     path('api/signup/', signup_view, name='signup'),
-    path('api/', include('groceriespricechecker.urls')),  # Include app-specific URLs
     path('api/forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
     path('api/reset-password/', ResetPasswordView.as_view(), name='reset-password'),
     path('api/confirm-email/', confirm_email, name='confirm-email'),
     path('api/email-list/', EmailListView.as_view(), name='email-list'),
+    path('api/', include('groceriespricechecker.urls')),  # Include app-specific URLs
 ]

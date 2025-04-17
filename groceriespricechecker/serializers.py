@@ -3,22 +3,21 @@ from django.utils import timezone
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from django.utils.html import strip_tags
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
-from django.core.mail import send_mail
 from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import Grocery, Message, EmailList, Shop
 
+# Serializer for the Grocery model
 class GrocerySerializer(serializers.ModelSerializer):
     class Meta:
         model = Grocery
         fields = '__all__'
 
-
+# Serializer for user signup
 class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)
     first_name = serializers.CharField(required=True)
@@ -28,6 +27,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
         model = User
         fields = ['username', 'email', 'first_name', 'last_name', 'password']
 
+    # Validate the username to ensure it is alphanumeric and unique
     def validate_username(self, value):
         if not value.isalnum():
             raise serializers.ValidationError("Username can only contain alphanumeric characters.")
@@ -35,11 +35,13 @@ class UserSignupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Username already exists.")
         return value
 
+    # Validate the email to ensure it is unique
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already exists.")
         return value
 
+    # Validate the password to ensure it meets complexity requirements
     def validate_password(self, value):
         if len(value) < 8:
             raise serializers.ValidationError("Password must be at least 8 characters long.")
@@ -49,10 +51,10 @@ class UserSignupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Password must contain at least one uppercase letter.")
         return value
 
+    # Create a new user and send a confirmation email
     def create(self, validated_data):
-        # Wrap creation and email sending in a transaction.
         try:
-            with transaction.atomic():
+            with transaction.atomic():  # Ensure atomicity for user creation and email sending
                 user = User.objects.create_user(
                     username=validated_data['username'],
                     email=validated_data.get('email', ''),
@@ -60,7 +62,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
                     first_name=validated_data['first_name'],
                     last_name=validated_data['last_name'],
                 )
-                user.is_active = False
+                user.is_active = False  # Deactivate the user until email confirmation
                 user.save()
 
                 uid = urlsafe_base64_encode(force_bytes(user.pk))
@@ -85,26 +87,23 @@ class UserSignupSerializer(serializers.ModelSerializer):
                 email_message.send(fail_silently=False)
 
                 return user
-
         except Exception as e:
             raise serializers.ValidationError(
                 f"An error occurred during signup. Please try again later. ({str(e)})"
             )
 
+# Custom serializer for obtaining JWT tokens
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        # Check if the identifier (sent as "username") contains an "@" symbol.
         identifier = attrs.get("username")
-        if identifier and "@" in identifier:
+        if identifier and "@" in identifier:  # Check if the identifier is an email
             try:
                 user = User.objects.get(email__iexact=identifier)
-                attrs["username"] = user.username  # Replace with actual username
+                attrs["username"] = user.username  # Replace with the actual username
             except User.DoesNotExist:
-                # Let the authentication process fail if no matching user is found
-                pass
+                pass  # Let authentication fail if no matching user is found
 
         data = super().validate(attrs)
-        # Update the user's last_login field
         self.user.last_login = timezone.now()
         self.user.save(update_fields=['last_login'])
         return data
@@ -131,7 +130,6 @@ class EmailListSerializer(serializers.ModelSerializer):
 class ShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        # Alternatively, use fields = '__all__' if you want to expose every field.
         fields = [
             'id',
             'owner',

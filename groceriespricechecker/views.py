@@ -40,6 +40,7 @@ def signup_view(request):
         return Response({'message': 'Signup successful'}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# Custom token view to handle login with username or email
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
@@ -60,33 +61,27 @@ def contact_us(request):
     if not recaptcha_result.get("success"):
         return Response({'recaptcha': ['reCAPTCHA verification failed.']}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Proceed with saving the message
+    # Save the message and send an email to the admin
     serializer = MessageSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
-
-        # Build email details for the admin
         subject = f"New Contact Us Message: {request.data.get('subject', 'No Subject')}"
         name = request.data.get('name', 'Anonymous')
         email_sender = request.data.get('email', 'No Email Provided')
         message_text = request.data.get('message', '')
-        message_body = (
-            f"Message from {name} <{email_sender}>:\n\n"
-            f"{message_text}"
-        )
+        message_body = f"Message from {name} <{email_sender}>:\n\n{message_text}"
 
-        # Send email to the admin
         send_mail(
             subject,
             message_body,
-            settings.DEFAULT_FROM_EMAIL,  # Ensure this is set (or use 'admin@groceryPriceChecker.com' directly)
+            settings.DEFAULT_FROM_EMAIL,
             ['admin@groceryPriceChecker.com'],
             fail_silently=False,
         )
-
         return Response({'message': 'Your message has been received. Thank you!'}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# API view to handle forgot password requests
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [FixedIntervalForgotPasswordThrottle]
@@ -115,11 +110,9 @@ class ForgotPasswordView(APIView):
             'reset_link': reset_link
         }
 
-        # Render the HTML version of the email
+        # Send password reset email
         html_message = render_to_string('emails/password_reset.html', context)
         plain_message = render_to_string('emails/password_reset.txt', context)
-
-        # Send both HTML and plain text versions
         email_message = EmailMultiAlternatives(
             subject=subject,
             body=plain_message,
@@ -133,6 +126,7 @@ class ForgotPasswordView(APIView):
             "message": "If an account exists with that email, password reset instructions have been sent."
         })
 
+# API view to handle password reset
 class ResetPasswordView(APIView):
     def post(self, request):
         uidb64 = request.data.get('uid')
@@ -158,6 +152,7 @@ class ResetPasswordView(APIView):
 
         return Response({"message": "Password reset successfully."})
 
+# API view to confirm email addresses
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def confirm_email(request):
@@ -182,6 +177,7 @@ def confirm_email(request):
 
     return Response({"message": "Email confirmed successfully. You can now log in."}, status=status.HTTP_200_OK)
 
+# API view to handle email list subscriptions
 class EmailListView(APIView):
     def post(self, request):
         serializer = EmailListSerializer(data=request.data)
@@ -190,6 +186,7 @@ class EmailListView(APIView):
             return Response({"message": "Successfully added to the email list."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# ViewSet to manage shops
 class ShopViewSet(viewsets.ModelViewSet):
     serializer_class = ShopSerializer
     permission_classes = [IsAuthenticated, IsOwner]
